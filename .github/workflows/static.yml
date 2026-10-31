@@ -1,43 +1,1035 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengembaraan Memerang 🦦💦</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', cursive, sans-serif;
+            background-color: #0f172a;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+        }
 
-on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
+        /* 16:9 Container Setup */
+        .game-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 56.25vw; /* 16:9 Aspect Ratio */
+            max-height: 100vh;
+            max-width: 177.78vh; /* 16:9 Aspect Ratio */
+            margin: auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+        /* UI Animations */
+        @keyframes pulse-slow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+        .animate-bounce-custom {
+            animation: pulse-slow 2s infinite ease-in-out;
+        }
 
-jobs:
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # Upload entire repository
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+        /* Custom Scrollbar for overlays if needed */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #38bdf8;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center bg-slate-900">
+
+    <!-- Game Container (16:9 Ratio forced) -->
+    <div class="game-wrapper rounded-3xl overflow-hidden border-4 border-cyan-400/30 flex flex-col justify-between">
+        
+        <!-- Canvas for Game Render (Background, River, Characters, Particles) -->
+        <canvas id="gameCanvas" class="absolute inset-0 z-0"></canvas>
+
+        <!-- HUD Layer Top -->
+        <div class="relative z-10 p-3 sm:p-4 flex justify-between items-start pointer-events-none">
+            <!-- Left Info: Score & Progress -->
+            <div class="flex flex-col gap-2">
+                <div class="bg-white/90 backdrop-blur border-2 border-cyan-500 rounded-2xl px-4 py-1.5 shadow-lg flex items-center gap-2">
+                    <span class="text-xl">🌟</span>
+                    <div>
+                        <div class="text-xs text-slate-500 font-bold leading-none">MARKAH</div>
+                        <div id="scoreText" class="text-xl sm:text-2xl font-bold text-amber-500 leading-none">0</div>
+                    </div>
+                </div>
+                <div class="bg-white/90 backdrop-blur border-2 border-cyan-500 rounded-2xl px-4 py-1.5 shadow-lg flex items-center gap-2">
+                    <span class="text-xl">🎯</span>
+                    <div>
+                        <div class="text-xs text-slate-500 font-bold leading-none">SOALAN</div>
+                        <div id="questionNumText" class="text-lg font-bold text-cyan-600 leading-none">1 / 5</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Title & Main Question Card -->
+            <div class="flex flex-col items-center">
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-amber-300 drop-shadow-[0_3px_0_rgba(0,0,0,0.4)] tracking-wide mb-1">
+                    Pengembaraan Memerang 🦦💦
+                </h1>
+                
+                <!-- Question Box -->
+                <div id="questionCard" class="bg-amber-100/95 border-4 border-amber-400 rounded-2xl p-2 sm:p-3 shadow-2xl flex items-center gap-3 sm:gap-4 pointer-events-auto transform transition-transform hover:scale-105">
+                    <!-- Object Illustration Container -->
+                    <div class="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl border-2 border-amber-300 flex items-center justify-center p-1 shadow-inner overflow-hidden">
+                        <canvas id="objectIllustrationCanvas" width="80" height="80" class="w-full h-full object-contain"></canvas>
+                    </div>
+                    <!-- Incomplete Word -->
+                    <div class="flex flex-col items-start pr-2">
+                        <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">Lengkapkan perkataan:</span>
+                        <div id="wordDisplay" class="text-2xl sm:text-4xl font-extrabold text-slate-800 tracking-widest font-mono">
+                            BO <span class="text-cyan-500 border-b-4 border-cyan-500">_</span> <span class="text-cyan-500 border-b-4 border-cyan-500">_</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timer Display -->
+            <div class="bg-white/90 backdrop-blur border-2 border-rose-400 rounded-2xl p-2 sm:p-3 shadow-lg flex flex-col items-center min-w-[70px] sm:min-w-[90px]">
+                <span class="text-xs font-bold text-rose-500">MASA</span>
+                <span id="timerText" class="text-2xl sm:text-3xl font-black text-rose-600">10</span>
+                <!-- Progress bar -->
+                <div class="w-full bg-slate-200 h-2 rounded-full mt-1 overflow-hidden">
+                    <div id="timerBar" class="bg-rose-500 h-full w-full transition-all duration-200"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Choice Signboards (Interactive Overlay over River Branches) -->
+        <div id="choicesContainer" class="relative z-10 grid grid-cols-3 gap-2 sm:gap-6 px-6 sm:px-16 mb-6 pointer-events-auto">
+            <!-- Buttons dynamically created here -->
+        </div>
+
+        <!-- Overlay Feedback Modals (Correct, Wrong, Time Out, Victory) -->
+        <div id="modalOverlay" class="absolute inset-0 z-30 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            
+            <!-- Message Card -->
+            <div id="modalCard" class="bg-white border-4 border-cyan-400 rounded-3xl p-6 max-w-md w-full shadow-2xl text-center transform transition-all scale-95 opacity-0">
+                <div id="modalIcon" class="text-6xl mb-2">🎉</div>
+                <h2 id="modalTitle" class="text-3xl font-black text-slate-800 mb-2">Tahniah!</h2>
+                <p id="modalMessage" class="text-slate-600 font-semibold mb-6">Jawapan anda betul tepat sekali!</p>
+                
+                <button id="modalBtn" onclick="closeModal()" class="w-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 text-white font-bold text-xl py-3 rounded-2xl shadow-lg transform active:scale-95 transition-all">
+                    Teruskan 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- Start Screen Overlay -->
+        <div id="startOverlay" class="absolute inset-0 z-40 bg-gradient-to-b from-cyan-600/90 to-blue-900/95 flex flex-col items-center justify-center p-6 text-center">
+            <div class="text-7xl mb-4 animate-bounce">🦦💦</div>
+            <h1 class="text-4xl sm:text-5xl font-black text-amber-300 drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] mb-2">
+                Pengembaraan Memerang
+            </h1>
+            <p class="text-cyan-100 text-lg sm:text-xl font-semibold max-w-lg mb-8">
+                Bantu memerang comel berenang melalui sungai yang betul dengan memilih suku kata yang tepat!
+            </p>
+            <button onclick="startGame()" class="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 font-black text-2xl px-10 py-4 rounded-3xl shadow-xl border-4 border-amber-200 transform hover:scale-105 active:scale-95 transition-all">
+                MULA MAIN! 🎮
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        /* ==========================================================================
+           AUDIO SYNTHESIZER (Web Audio API - No external files needed)
+           ========================================================================== */
+        class SoundEffects {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playPop() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            playCorrect() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.3);
+                });
+            }
+
+            playWrong() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.3);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            playSplash() {
+                if (!this.ctx) return;
+                const bufferSize = this.ctx.sampleRate * 0.2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 1000;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+        }
+
+        const sfx = new SoundEffects();
+
+        /* ==========================================================================
+           GAME DATA & STATE MANAGEMENT
+           ========================================================================== */
+        const questions = [
+            { id: 'bola', prefix: 'BO', correct: 'LA', choices: ['LA', 'KU', 'CA'], name: 'BOLA' },
+            { id: 'buku', prefix: 'BU', correct: 'KU', choices: ['JU', 'KU', 'TE'], name: 'BUKU' },
+            { id: 'baju', prefix: 'BA', correct: 'JU', choices: ['PA', 'LI', 'JU'], name: 'BAJU' },
+            { id: 'gigi', prefix: 'GI', correct: 'GI', choices: ['GI', 'RA', 'SA'], name: 'GIGI' },
+            { id: 'susu', prefix: 'SU', correct: 'SU', choices: ['DA', 'SU', 'MA'], name: 'SUSU' }
+        ];
+
+        let currentQuestionIdx = 0;
+        let score = 0;
+        let timer = 10;
+        let timerInterval = null;
+        let isAnimating = false;
+        let gameActive = false;
+
+        /* ==========================================================================
+           CANVAS ENGINE & RENDERER (16:9 Logic)
+           ========================================================================== */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = 0;
+        let height = 0;
+
+        // Visual Decorative Elements
+        let waterParticles = [];
+        let ripples = [];
+        let fishes = [];
+        let lilyPads = [];
+
+        // Otter Animation State
+        let otter = {
+            x: 0,
+            y: 0,
+            targetX: 0,
+            targetY: 0,
+            angle: 0,
+            legPhase: 0,
+            tailPhase: 0,
+            isSwimming: false,
+            path: [],
+            pathProgress: 0,
+            speed: 0.015
+        };
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            width = canvas.width;
+            height = canvas.height;
+
+            // Reset otter base location relative to canvas if not animating
+            if (!otter.isSwimming) {
+                otter.x = width * 0.5;
+                otter.y = height * 0.85;
+            }
+
+            initEnvironment();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        /* Initialize Static/Semi-Static River Objects */
+        function initEnvironment() {
+            waterParticles = [];
+            fishes = [];
+            lilyPads = [];
+
+            // Spawn Fish
+            for (let i = 0; i < 6; i++) {
+                fishes.push({
+                    x: Math.random() * width,
+                    y: height * 0.3 + Math.random() * (height * 0.5),
+                    size: 8 + Math.random() * 8,
+                    speed: 0.5 + Math.random() * 1,
+                    direction: Math.random() > 0.5 ? 1 : -1,
+                    color: ['#f97316', '#fbbf24', '#ef4444'][Math.floor(Math.random() * 3)]
+                });
+            }
+
+            // Spawn Lily Pads
+            const padCoords = [
+                {x: 0.15, y: 0.75}, {x: 0.85, y: 0.78},
+                {x: 0.22, y: 0.45}, {x: 0.78, y: 0.45},
+                {x: 0.5, y: 0.25}
+            ];
+            padCoords.forEach(pt => {
+                lilyPads.push({
+                    x: pt.x * width,
+                    y: pt.y * height,
+                    radius: 18 + Math.random() * 10
+                });
+            });
+        }
+
+        /* ==========================================================================
+           PROCEDURAL RIVER & LANDSCAPE DRAWING
+           ========================================================================== */
+        function drawBackground() {
+            // Grass Bank (Top & Sides)
+            ctx.fillStyle = '#22c55e'; // Fresh grass
+            ctx.fillRect(0, 0, width, height);
+
+            // Inner dark grass detail
+            ctx.fillStyle = '#16a34a';
+            ctx.beginPath();
+            ctx.arc(width * 0.5, height * 0.1, width * 0.6, 0, Math.PI);
+            ctx.fill();
+
+            // Main River Base (Turquoise Blue)
+            ctx.fillStyle = '#06b6d4';
+
+            // Draw River Splitting into 3 Branches
+            ctx.beginPath();
+            // Start at bottom river mouth
+            ctx.moveTo(width * 0.35, height);
+            ctx.bezierCurveTo(width * 0.35, height * 0.7, width * 0.4, height * 0.6, width * 0.4, height * 0.55);
+
+            // Left Branch
+            ctx.bezierCurveTo(width * 0.3, height * 0.45, width * 0.1, height * 0.35, width * 0.15, height * 0.15);
+            ctx.lineTo(width * 0.28, height * 0.15);
+            ctx.bezierCurveTo(width * 0.25, height * 0.3, width * 0.42, height * 0.42, width * 0.46, height * 0.48);
+
+            // Middle Branch
+            ctx.lineTo(width * 0.46, height * 0.15);
+            ctx.lineTo(width * 0.54, height * 0.15);
+            ctx.lineTo(width * 0.54, height * 0.48);
+
+            // Right Branch
+            ctx.bezierCurveTo(width * 0.58, height * 0.42, width * 0.75, height * 0.3, width * 0.72, height * 0.15);
+            ctx.lineTo(width * 0.85, height * 0.15);
+            ctx.bezierCurveTo(width * 0.9, height * 0.35, width * 0.7, height * 0.45, width * 0.6, height * 0.55);
+
+            // Bottom Right River Bank Return
+            ctx.bezierCurveTo(width * 0.6, height * 0.6, width * 0.65, height * 0.7, width * 0.65, height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Water Highlights / Flow lines
+            ctx.strokeStyle = '#22d3ee';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw Decorative River Islands / Rocks
+            drawRocks();
+            drawLilyPads();
+            drawFishes();
+        }
+
+        function drawRocks() {
+            const rocks = [
+                {x: width * 0.34, y: height * 0.5, r: 14},
+                {x: width * 0.66, y: height * 0.5, r: 14},
+                {x: width * 0.08, y: height * 0.2, r: 18},
+                {x: width * 0.92, y: height * 0.2, r: 18},
+                {x: width * 0.32, y: height * 0.85, r: 22}
+            ];
+
+            rocks.forEach(r => {
+                // Rock Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.beginPath();
+                ctx.arc(r.x + 3, r.y + 3, r.r, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Rock Body
+                ctx.fillStyle = '#64748b';
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Highlight
+                ctx.fillStyle = '#94a3b8';
+                ctx.beginPath();
+                ctx.arc(r.x - r.r * 0.3, r.y - r.r * 0.3, r.r * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function drawLilyPads() {
+            lilyPads.forEach(pad => {
+                ctx.fillStyle = '#15803d';
+                ctx.beginPath();
+                ctx.arc(pad.x, pad.y, pad.radius, 0.2 * Math.PI, 1.8 * Math.PI);
+                ctx.lineTo(pad.x, pad.y);
+                ctx.fill();
+
+                // Small Flower on some pads
+                if (pad.radius > 22) {
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.beginPath();
+                    ctx.arc(pad.x - 2, pad.y - 2, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+
+        function drawFishes() {
+            fishes.forEach(fish => {
+                fish.x += fish.speed * fish.direction;
+                if (fish.x > width + 20) fish.x = -20;
+                if (fish.x < -20) fish.x = width + 20;
+
+                ctx.save();
+                ctx.translate(fish.x, fish.y);
+                if (fish.direction < 0) ctx.scale(-1, 1);
+
+                // Body
+                ctx.fillStyle = fish.color;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, fish.size, fish.size * 0.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Tail
+                ctx.beginPath();
+                ctx.moveTo(-fish.size, 0);
+                ctx.lineTo(-fish.size - 6, -5);
+                ctx.lineTo(-fish.size - 6, 5);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.restore();
+            });
+        }
+
+        /* ==========================================================================
+           PROCEDURAL CANVAS OTTER CHARACTER & ANIMATION
+           ========================================================================== */
+        function drawOtter(x, y, angle, isSwimming) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle + Math.PI / 2); // Align sprite with vector direction
+
+            // Swimming cycle counters
+            if (isSwimming) {
+                otter.legPhase += 0.25;
+                otter.tailPhase += 0.2;
+            } else {
+                otter.legPhase += 0.05; // Idle floating animation
+                otter.tailPhase += 0.05;
+            }
+
+            const legOffset = Math.sin(otter.legPhase) * 8;
+            const tailWag = Math.sin(otter.tailPhase) * 0.3;
+
+            // --- WATER RIPPLES & SPRAY ---
+            if (isSwimming) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(0, 10, 25 + Math.sin(otter.legPhase) * 5, 0, Math.PI);
+                ctx.stroke();
+
+                // Add water particle splashes
+                if (Math.random() > 0.4) {
+                    ripples.push({
+                        x: x + (Math.random() - 0.5) * 20,
+                        y: y + (Math.random() - 0.5) * 20,
+                        radius: 2,
+                        alpha: 0.8
+                    });
+                }
+            }
+
+            // --- TAIL ---
+            ctx.save();
+            ctx.translate(0, 25);
+            ctx.rotate(tailWag);
+            ctx.fillStyle = '#78350f'; // Darker otter brown
+            ctx.beginPath();
+            ctx.moveTo(-6, 0);
+            ctx.quadraticCurveTo(-8, 20, 0, 35);
+            ctx.quadraticCurveTo(8, 20, 6, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // --- REAR LEGS (Paddles) ---
+            ctx.fillStyle = '#92400e';
+            // Left leg
+            ctx.beginPath();
+            ctx.ellipse(-18, 12 + legOffset, 6, 10, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+            // Right leg
+            ctx.beginPath();
+            ctx.ellipse(18, 12 - legOffset, 6, 10, -Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // --- MAIN BODY ---
+            ctx.fillStyle = '#b45309'; // Otter main brown
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 18, 28, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tummy Patch
+            ctx.fillStyle = '#fde68a'; // Cream tummy
+            ctx.beginPath();
+            ctx.ellipse(0, 2, 11, 18, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // --- FRONT PAWS ---
+            ctx.fillStyle = '#92400e';
+            ctx.beginPath();
+            ctx.arc(-14, -8 - legOffset * 0.5, 5, 0, Math.PI * 2);
+            ctx.arc(14, -8 + legOffset * 0.5, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // --- HEAD ---
+            ctx.fillStyle = '#b45309';
+            ctx.beginPath();
+            ctx.arc(0, -24, 16, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Ears
+            ctx.fillStyle = '#78350f';
+            ctx.beginPath();
+            ctx.arc(-14, -32, 4, 0, Math.PI * 2);
+            ctx.arc(14, -32, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Muzzle / Snout
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            ctx.ellipse(0, -20, 8, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Nose
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(0, -22, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Big Cute Eyes
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(-6, -27, 3.5, 0, Math.PI * 2);
+            ctx.arc(6, -27, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eye Highlights
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(-7, -28, 1.2, 0, Math.PI * 2);
+            ctx.arc(5, -28, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Whiskers
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            // Left whiskers
+            ctx.moveTo(-6, -20); ctx.lineTo(-18, -22);
+            ctx.moveTo(-6, -19); ctx.lineTo(-17, -17);
+            // Right whiskers
+            ctx.moveTo(6, -20); ctx.lineTo(18, -22);
+            ctx.moveTo(6, -19); ctx.lineTo(17, -17);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        /* Render Active Ripples Effect */
+        function drawRipples() {
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                const r = ripples[i];
+                r.radius += 0.6;
+                r.alpha -= 0.02;
+
+                if (r.alpha <= 0) {
+                    ripples.splice(i, 1);
+                    continue;
+                }
+
+                ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha})`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        /* Update Otter Spline Movement Along Selected River Branch Path */
+        function updateOtterPosition() {
+            if (!otter.isSwimming || otter.path.length < 2) return;
+
+            otter.pathProgress += otter.speed;
+
+            if (otter.pathProgress >= 1) {
+                otter.pathProgress = 1;
+                otter.isSwimming = false;
+                onOtterReachedDestination();
+            }
+
+            // Compute Bezier Curve Interpolation based on path points
+            const p = getBezierPoint(otter.path, otter.pathProgress);
+            const pNext = getBezierPoint(otter.path, Math.min(1, otter.pathProgress + 0.01));
+
+            // Calculate Angle
+            const dx = pNext.x - p.x;
+            const dy = pNext.y - p.y;
+            if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
+                otter.angle = Math.atan2(dy, dx);
+            }
+
+            otter.x = p.x;
+            otter.y = p.y;
+        }
+
+        /* Get Quadratic/Cubic Point along Path */
+        function getBezierPoint(pts, t) {
+            if (pts.length === 3) {
+                const [p0, p1, p2] = pts;
+                const l1 = lerpPoint(p0, p1, t);
+                const l2 = lerpPoint(p1, p2, t);
+                return lerpPoint(l1, l2, t);
+            } else if (pts.length === 4) {
+                const [p0, p1, p2, p3] = pts;
+                const l1 = lerpPoint(p0, p1, t);
+                const l2 = lerpPoint(p1, p2, t);
+                const l3 = lerpPoint(p2, p3, t);
+                const q1 = lerpPoint(l1, l2, t);
+                const q2 = lerpPoint(l2, l3, t);
+                return lerpPoint(q1, q2, t);
+            }
+            return pts[0];
+        }
+
+        function lerpPoint(p1, p2, t) {
+            return {
+                x: p1.x + (p2.x - p1.x) * t,
+                y: p1.y + (p2.y - p1.y) * t
+            };
+        }
+
+        /* Main Canvas Animation Loop */
+        function renderLoop() {
+            ctx.clearRect(0, 0, width, height);
+
+            drawBackground();
+            drawRipples();
+            updateOtterPosition();
+            drawOtter(otter.x, otter.y, otter.angle, otter.isSwimming);
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        /* ==========================================================================
+           2D MINI ILLUSTRATION GENERATOR FOR QUESTION CARDS
+           ========================================================================== */
+        function drawObjectIllustration(questionId) {
+            const objCanvas = document.getElementById('objectIllustrationCanvas');
+            const octx = objCanvas.getContext('2d');
+            octx.clearRect(0, 0, 80, 80);
+
+            octx.save();
+            octx.translate(40, 40);
+
+            switch (questionId) {
+                case 'bola': // Soccer Ball
+                    octx.fillStyle = '#38bdf8';
+                    octx.beginPath(); octx.arc(0, 0, 32, 0, Math.PI * 2); octx.fill();
+                    octx.fillStyle = '#ffffff';
+                    octx.beginPath(); octx.arc(0, 0, 30, 0, Math.PI * 2); octx.fill();
+                    // Pattern
+                    octx.fillStyle = '#1e293b';
+                    octx.beginPath();
+                    for(let i=0; i<5; i++){
+                        let a = (i * 72) * Math.PI / 180;
+                        octx.lineTo(12 * Math.cos(a), 12 * Math.sin(a));
+                    }
+                    octx.closePath();
+                    octx.fill();
+                    break;
+
+                case 'buku': // Closed Story Book
+                    octx.fillStyle = '#ef4444'; // Red Cover
+                    octx.beginPath();
+                    octx.roundRect(-24, -28, 48, 56, 6);
+                    octx.fill();
+                    // Pages
+                    octx.fillStyle = '#f8fafc';
+                    octx.fillRect(-18, -24, 38, 48);
+                    // Bookmark ribbon
+                    octx.fillStyle = '#f59e0b';
+                    octx.fillRect(-2, -28, 8, 30);
+                    break;
+
+                case 'baju': // T-Shirt
+                    octx.fillStyle = '#3b82f6';
+                    octx.beginPath();
+                    octx.moveTo(-15, -28);
+                    octx.lineTo(-30, -15);
+                    octx.lineTo(-22, -5);
+                    octx.lineTo(-18, -10);
+                    octx.lineTo(-18, 26);
+                    octx.lineTo(18, 26);
+                    octx.lineTo(18, -10);
+                    octx.lineTo(22, -5);
+                    octx.lineTo(30, -15);
+                    octx.lineTo(15, -28);
+                    octx.quadraticCurveTo(0, -20, -15, -28);
+                    octx.fill();
+                    break;
+
+                case 'gigi': // Shiny Tooth
+                    octx.fillStyle = '#ffffff';
+                    octx.strokeStyle = '#cbd5e1';
+                    octx.lineWidth = 3;
+                    octx.beginPath();
+                    octx.moveTo(-18, -20);
+                    octx.bezierCurveTo(-25, -5, -20, 25, -10, 28);
+                    octx.bezierCurveTo(-5, 28, 0, 10, 0, 10);
+                    octx.bezierCurveTo(0, 10, 5, 28, 10, 28);
+                    octx.bezierCurveTo(20, 25, 25, -5, 18, -20);
+                    octx.bezierCurveTo(10, -30, -10, -30, -18, -20);
+                    octx.fill();
+                    octx.stroke();
+                    // Sparkle
+                    octx.fillStyle = '#f59e0b';
+                    octx.beginPath(); octx.arc(12, -12, 3, 0, Math.PI*2); octx.fill();
+                    break;
+
+                case 'susu': // Milk Carton
+                    octx.fillStyle = '#22c55e';
+                    octx.beginPath();
+                    octx.roundRect(-20, -15, 40, 42, 4);
+                    octx.fill();
+                    // Top slant
+                    octx.fillStyle = '#16a34a';
+                    octx.beginPath();
+                    octx.moveTo(-20, -15);
+                    octx.lineTo(-12, -30);
+                    octx.lineTo(12, -30);
+                    octx.lineTo(20, -15);
+                    octx.fill();
+                    // Milk drops icon
+                    octx.fillStyle = '#ffffff';
+                    octx.beginPath();
+                    octx.arc(0, 5, 8, 0, Math.PI*2);
+                    octx.fill();
+                    break;
+            }
+
+            octx.restore();
+        }
+
+        /* ==========================================================================
+           GAME LOGIC & INTERACTION CONTROLLER
+           ========================================================================== */
+        function startGame() {
+            sfx.init();
+            sfx.playPop();
+
+            document.getElementById('startOverlay').classList.add('hidden');
+            score = 0;
+            currentQuestionIdx = 0;
+            gameActive = true;
+
+            updateHUD();
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            isAnimating = false;
+            const q = questions[currentQuestionIdx];
+
+            // Update UI Texts
+            document.getElementById('questionNumText').innerText = `${currentQuestionIdx + 1} / ${questions.length}`;
+            document.getElementById('wordDisplay').innerHTML = `${q.prefix} <span class="text-cyan-500 border-b-4 border-cyan-500">_</span> <span class="text-cyan-500 border-b-4 border-cyan-500">_</span>`;
+
+            // Draw Object Icon
+            drawObjectIllustration(q.id);
+
+            // Generate Path Buttons over 3 Branches
+            const choicesContainer = document.getElementById('choicesContainer');
+            choicesContainer.innerHTML = '';
+
+            q.choices.forEach((choice, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `bg-gradient-to-b from-amber-200 to-amber-400 hover:from-amber-300 hover:to-amber-500 text-amber-950 font-black text-2xl sm:text-3xl py-3 sm:py-4 rounded-2xl border-4 border-amber-600 shadow-xl transform hover:-translate-y-1 active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1`;
+                btn.innerHTML = `
+                    <span class="text-xs text-amber-800 font-bold tracking-wider uppercase">Laluan ${idx + 1}</span>
+                    <span>${choice}</span>
+                `;
+                btn.onclick = () => handleChoiceSelect(choice, idx);
+                choicesContainer.appendChild(btn);
+            });
+
+            // Reset Otter Position to Bottom Center River Mouth
+            otter.x = width * 0.5;
+            otter.y = height * 0.85;
+            otter.angle = -Math.PI / 2;
+            otter.isSwimming = false;
+
+            // Start Timer
+            startTimer();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timer = 10;
+            updateTimerDisplay();
+
+            timerInterval = setInterval(() => {
+                if (!gameActive || isAnimating) return;
+
+                timer--;
+                updateTimerDisplay();
+
+                if (timer <= 0) {
+                    clearInterval(timerInterval);
+                    onTimeOut();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timerText').innerText = timer;
+            const barPercent = (timer / 10) * 100;
+            const timerBar = document.getElementById('timerBar');
+            timerBar.style.width = `${barPercent}%`;
+
+            if (timer <= 3) {
+                timerBar.className = 'bg-red-600 h-full transition-all duration-200';
+            } else {
+                timerBar.className = 'bg-rose-500 h-full transition-all duration-200';
+            }
+        }
+
+        function handleChoiceSelect(selectedChoice, branchIndex) {
+            if (isAnimating || !gameActive) return;
+
+            isAnimating = true;
+            clearInterval(timerInterval); // Stop timer during swim animation
+            sfx.playSplash();
+
+            // Compute River Branch Paths (Bezier curve control points)
+            const startPt = { x: width * 0.5, y: height * 0.85 };
+            const midPt = { x: width * 0.5, y: height * 0.55 };
+
+            let destPt = { x: 0, y: 0 };
+            let ctrlPt = { x: 0, y: 0 };
+
+            if (branchIndex === 0) { // Left Branch
+                destPt = { x: width * 0.21, y: height * 0.18 };
+                ctrlPt = { x: width * 0.25, y: height * 0.45 };
+            } else if (branchIndex === 1) { // Middle Branch
+                destPt = { x: width * 0.5, y: height * 0.18 };
+                ctrlPt = { x: width * 0.5, y: height * 0.45 };
+            } else { // Right Branch
+                destPt = { x: width * 0.79, y: height * 0.18 };
+                ctrlPt = { x: width * 0.75, y: height * 0.45 };
+            }
+
+            otter.path = [startPt, midPt, ctrlPt, destPt];
+            otter.pathProgress = 0;
+            otter.isSwimming = true;
+
+            // Store current chosen answer state
+            const q = questions[currentQuestionIdx];
+            otter.lastChosenCorrect = (selectedChoice === q.correct);
+            otter.lastChoiceSyllable = selectedChoice;
+        }
+
+        function onOtterReachedDestination() {
+            const q = questions[currentQuestionIdx];
+
+            if (otter.lastChosenCorrect) {
+                sfx.playCorrect();
+                score += 10;
+                updateHUD();
+
+                // Complete word display
+                document.getElementById('wordDisplay').innerText = `${q.prefix}${q.correct}`;
+
+                showModal(
+                    '🎉',
+                    'SYABAS!',
+                    `Jawapan "${q.prefix}${q.correct}" adalah BETUL! (+10 mata)`,
+                    'Soalan Seterusnya ➡️',
+                    () => {
+                        currentQuestionIdx++;
+                        if (currentQuestionIdx < questions.length) {
+                            loadQuestion();
+                        } else {
+                            showVictoryScreen();
+                        }
+                    }
+                );
+            } else {
+                sfx.playWrong();
+                showModal(
+                    '🦦💦',
+                    'Cuba Lagi!',
+                    `Pilihan suku kata "${otter.lastChoiceSyllable}" kurang tepat. Ayo cuba laluan sungai lain!`,
+                    'Cuba Semula 🔄',
+                    () => {
+                        // Reset otter position and resume timer
+                        otter.x = width * 0.5;
+                        otter.y = height * 0.85;
+                        otter.angle = -Math.PI / 2;
+                        isAnimating = false;
+                        startTimer();
+                    }
+                );
+            }
+        }
+
+        function onTimeOut() {
+            sfx.playWrong();
+            showModal(
+                '⏰',
+                'Masa Tamat!',
+                'Masa 10 saat telah tamat. Jangan risau, mari cuba lagi!',
+                'Cuba Semula 🔄',
+                () => {
+                    isAnimating = false;
+                    startTimer();
+                }
+            );
+        }
+
+        function showVictoryScreen() {
+            gameActive = false;
+            sfx.playCorrect();
+
+            showModal(
+                '🏆',
+                'TAHNIAH! KEMENANGAN!',
+                `Anda telah berjaya menamatkan pengembaraan! Markah Penuh Anda: ${score} / 50 Mata!`,
+                'Main Semula 🔄',
+                () => {
+                    startGame();
+                }
+            );
+        }
+
+        function updateHUD() {
+            document.getElementById('scoreText').innerText = score;
+        }
+
+        /* Modal Dialog Controller */
+        let currentModalCallback = null;
+
+        function showModal(icon, title, message, btnText, callback) {
+            document.getElementById('modalIcon').innerText = icon;
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('modalBtn').innerText = btnText;
+
+            currentModalCallback = callback;
+
+            const overlay = document.getElementById('modalOverlay');
+            const card = document.getElementById('modalCard');
+
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                card.classList.remove('scale-95', 'opacity-0');
+                card.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            sfx.playPop();
+            const overlay = document.getElementById('modalOverlay');
+            const card = document.getElementById('modalCard');
+
+            card.classList.remove('scale-100', 'opacity-100');
+            card.classList.add('scale-95', 'opacity-0');
+
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                if (currentModalCallback) {
+                    currentModalCallback();
+                }
+            }, 150);
+        }
+
+        // Initialize Engine On Page Load
+        window.onload = () => {
+            resizeCanvas();
+            requestAnimationFrame(renderLoop);
+        };
+    </script>
+</body>
+</html>
